@@ -36,11 +36,11 @@ class InfoHolder(object):
             hashstr = rspath
         return hashlib.md5(hashstr.encode('utf8')).hexdigest()
 
-    def _initinfo(self, rspath, isroot=False):
+    def _initinfo(self, rspath, isroot=False, confuse=True):
         print(f'------rspath: {rspath}')
         self._path = rspath
         self._name = os.path.split(rspath)[-1].split('.')[0]
-        self._id = self._rshash(rspath, True)
+        self._id = self._rshash(rspath, confuse)
         if isroot == True:
             self._parent_id = ''
         else:
@@ -58,14 +58,14 @@ class InfoHolder(object):
             self._mime = mimetypes.guess_type(rspath)[0]
             self._file_extension = os.path.splitext(rspath)[-1][1:]
 
-    def _updateinfo(self, rspath, name='', isroot=False):
-        self._initinfo(rspath, isroot)
+    def _updateinfo(self, rspath, name='', isroot=False, confuse=True):
+        self._initinfo(rspath, isroot, confuse)
         if not name == '':
             self._name = name
 
-    def updatersdict(self, rspath, rstype=None, name='', isroot=False):
+    def updatersdict(self, rspath, rstype=None, name='', isroot=False, confuse=True):
         rspath = rmlastslash(rspath)
-        self._updateinfo(rspath, name, isroot)
+        self._updateinfo(rspath, name, isroot, confuse)
         rsinfo = {'path': self._path,
                   'name': self._name,
                   'id': self._id}
@@ -133,8 +133,8 @@ class InfoHolderYNote(InfoHolder):
     def __init__(self, bkuptz=0):
         super(InfoHolderYNote, self).__init__(bkuptz)
 
-    def _updateinfo(self, rspath, name='', isroot=False):
-        self._initinfo(rspath, isroot)
+    def _updateinfo(self, rspath, name='', isroot=False, confuse=True):
+        self._initinfo(rspath, isroot, confuse)
         if not name == '':
             self._name = name
         rspathse = os.path.splitext(rspath)
@@ -177,6 +177,8 @@ class Md2Jex(object):
             self.ifhd = InfoHolderYNote(bkuptz)
 
     def __rsinfoget(self, rspath, ext='', subdir=''):
+        if ext != '' and ext[0] != '.':
+            ext = '.' + ext
         phash = self.ifhd._rshash(rspath)
         rsinfo = self.ifhd.rsdict[phash]
         rsinfo['phash'] = phash
@@ -196,37 +198,52 @@ class Md2Jex(object):
         print(f"--t2-- writed file {rsinfo['rs2path_main']}")
         self.ifhd.rsdict[rsinfo['phash']] = {'id': rsinfo['id']}
 
-    def __t4proc(self, rspath, name=''):
-        self.ifhd.updatersdict(rspath, 4, name)
+    def __t4proc(self, rspath, name='', confuse=False):
+        self.ifhd.updatersdict(rspath, 4, name, confuse=confuse)
         rsinfo = self.__rsinfoget(
-            rspath, os.path.splitext(rspath)[-1], 'resources')
+            rspath, self.ifhd._file_extension, 'resources')
         content = rsinfo['des']
         with open(rsinfo['rs2path_main'], 'w') as f:
             f.write(content)
         print(f"--t4-- writed file {rsinfo['rs2path_main']}")
-        copy(rspath, rsinfo['rs2path_res'])
-        print(f"--t4-- copied {rspath} to {rsinfo['rs2path_res']}")
+        if not os.path.exists(rsinfo['rs2path_res']):
+            copy(rspath, rsinfo['rs2path_res'])
+            print(f"--t4-- copied {rspath} to {rsinfo['rs2path_res']}")
         rsid = rsinfo['id']
         del self.ifhd.rsdict[rsinfo['phash']]
         return rsid
 
     def __picproc(self, matched):
-        picstr = matched.group('piclinked')
-        pic_info = picstr[2:-1].split('](')
-        if os.path.exists(pic_info[-1]):
-            rsid = self.__t4proc(pic_info[-1], pic_info[0])
-            return f'![{pic_info[0]}](:/{rsid})'
-        else:
-            return picstr
+        try:
+            picstr = matched.group('piclinked_1')
+            pic_info = picstr[2:-1].split('](')
+            if os.path.exists(pic_info[-1]):
+                rsid = self.__t4proc(pic_info[-1], pic_info[0])
+                return f'![{pic_info[0]}](:/{rsid})'
+            else:
+                return picstr
+        except IndexError:
+            picstr = matched.group('piclinked_2')
+            pic_path = picstr[10:-4].split('" style="')[0]
+            if os.path.exists(pic_path):
+                rsid = self.__t4proc(pic_path, picstr[10:-4].split('" alt="')[-1])
+                return picstr.replace(pic_path, f':/{rsid}')
+            else:
+                return picstr
 
     def __t1proce(self, rspath):
         self.ifhd.updatersdict(rspath, 1)
         rsinfo = self.__rsinfoget(rspath)
         with open(rspath, 'r') as f:
             content = f.read()
-        regex_pic = re.compile(r'(?P<piclinked>!\[(.+?)\))')
-        content = regex_pic.sub(self.__picproc, content)
-        content = rsinfo['name'] + '\n' + '\n' + content + '\n' + rsinfo['des']
+        regex_pic_1 = re.compile(r'(?P<piclinked_1>!\[(.+?)\))')
+        content = regex_pic_1.sub(self.__picproc, content)
+        regex_pic_2 = re.compile(r'(?P<piclinked_2><img src=(.+?) />)')
+        content = regex_pic_2.sub(self.__picproc, content)
+        regex_str_1 = re.compile(r'&lt;/font&gt;&lt;/a&gt;')
+        content = regex_str_1.sub('', content)
+        content = rsinfo['name'] + '\n' + '\n' + content + \
+            '\n' + '\n' + rsinfo['des']
         with open(rsinfo['rs2path_main'], 'w') as f:
             f.write(content)
         print(f"--t1-- writed file {rsinfo['rs2path_main']}")
