@@ -27,6 +27,24 @@
 
     打开 Joplin,工具-->选项-->插件-->勾选 启动软中断-->确定
 
+**效果：**
+  
+    *原始 docx 格式*
+  
+  <img src="https://github.com/selay01/dir2jex/raw/master/asset/docx.png" width="50%" height="50%">
+  
+    *原始 pdf 格式*
+  
+  <img src="https://github.com/selay01/dir2jex/raw/master/asset/pdf.png" width="50%" height="50%">
+  
+    *导入到 Joplin 样式*
+  
+  <img src="https://github.com/selay01/dir2jex/raw/master/asset/joplin.png" width="50%" height="50%">
+  
+    *导入到 Joplin 样式1*
+  
+  <img src="https://github.com/selay01/dir2jex/raw/master/asset/joplin1.png" width="50%" height="50%">
+
 **附加功能及用法：**
 
   按照笔记目录下载 有道云笔记 所有笔记的 xml/docx格式内容 + json笔记信息 到对应层级的目录。
